@@ -39,22 +39,28 @@ namespace FaceDetection.ViewModels
 
         private void OnFrameCaptured(object sender, Mat frame)
         {
-            using (frame) // Ensure the Mat is disposed after processing
+            // Important: Using 'using' ensures the Mat is disposed to prevent memory leaks
+            using (frame)
             {
-                // 1. Detect faces
+                // 1. Run the detection algorithm
                 var faces = _faceDetector.DetectFaces(frame);
-                FaceCount = (faces as List<Rect>)?.Count ?? 0;
 
-                // 2. Draw rectangles on the frame for visual feedback
+                // 2. Calculate the count safely using LINQ
+                // OpenCvSharp usually returns an array, so 'as List<Rect>' might return null.
+                // .Count() is the most robust way here.
+                int currentFaceCount = System.Linq.Enumerable.Count(faces);
+
+                // 3. Draw rectangles on the frame for visual feedback
                 foreach (var rect in faces)
                 {
                     Cv2.Rectangle(frame, rect, Scalar.Red, thickness: 2);
                 }
 
-                // 3. Convert to WPF format and update the UI
-                // Application.Current.Dispatcher is needed because the event comes from a background thread
+                // 4. Update UI properties ONLY on the UI Dispatcher thread
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
+                    // This triggers PropertyChanged notifications for the UI
+                    FaceCount = currentFaceCount;
                     CurrentFrame = frame.ToBitmapSource();
                 });
             }
